@@ -10,7 +10,7 @@ package Salesforce;
 
 use Service;
 
-$VERSION=0.55;
+$VERSION=0.56;
 
 ##################################################################
 # BEGIN PortType Definitions
@@ -18,6 +18,7 @@ $VERSION=0.55;
 package Salesforce::Soap;
 
 use strict;
+use Encode;
 
 BEGIN {
   use vars qw($PARAMS);
@@ -94,6 +95,16 @@ sub queryMore {
 
 }
 
+sub xml_encode {
+    my ($self, $string) = @_;
+    my @array = split(//, Encode::decode('euc-jp', $string));
+    my $str;
+    foreach my $c (@array) {
+	$str .= sprintf("&#x%x;", ord($c));
+    }
+    return $str;
+}
+
 sub update {
     my $self = shift;
     my (%in) = @_;
@@ -121,7 +132,16 @@ sub update {
     push @elems, SOAP::Data->prefix('sforce')->name('Id' => $id)->type('sforce:ID');
     
     foreach my $key (keys %in) {
-	push @elems, SOAP::Data->prefix('sforce')->name($key => $in{$key})->type($Salesforce::Constants::TYPES{$type}->{$key});
+	my $val = $in{$key};
+	my $typ = $Salesforce::Constants::TYPES{$type}->{$key};
+	if ($typ eq 'xsd:string') {
+	    $val = $self->xml_encode($in{$key});
+	} elsif (!defined $typ || length($typ) == 0) {
+	    $typ = 'xsd:string';
+	    $val = $self->xml_encode($in{$key});
+	}
+	push @elems, SOAP::Data->prefix('sforce')->name($key => $val)->type($typ);
+	#push @elems, SOAP::Data->prefix('sforce')->name($key => $in{$key})->type($Salesforce::Constants::TYPES{$type}->{$key});
     }
 
     my $r = $client->call($method => 
@@ -155,7 +175,16 @@ sub create {
     
     my @elems;
     foreach my $key (keys %in) {
-	push @elems, SOAP::Data->prefix('sfons')->name($key => $in{$key})->type($Salesforce::Constants::TYPES{$type}->{$key});
+	my $val = $in{$key};
+	my $typ = $Salesforce::Constants::TYPES{$type}->{$key};
+	if ($typ eq 'xsd:string') {
+	    $val = $self->xml_encode($in{$key});
+	} elsif (!defined $typ || length($typ) == 0) {
+	    $typ = 'xsd:string';
+	    $val = $self->xml_encode($in{$key});
+	}
+	push @elems, SOAP::Data->prefix('sfons')->name($key => $val)->type($typ);
+	#push @elems, SOAP::Data->prefix('sfons')->name($key => $in{$key})->type($Salesforce::Constants::TYPES{$type}->{$key});
     }
 
     my $r = $client->call($method => 
@@ -601,47 +630,127 @@ BEGIN {
     use vars qw(%TYPES);
     %TYPES = (
 	      'Account' => {
-			    'AccountNumber' => 'xsd:string',
-			    'Active__c' => 'xsd:string',
-			    'AnnualRevenue' => 'xsd:double',
-			    'BillingCity' => 'xsd:string',
-			    'BillingCountry' => 'xsd:string',
-			    'BillingPostalCode' => 'xsd:string',
-			    'BillingState' => 'xsd:string',
-			    'BillingStreet' => 'xsd:string',
-			    'CreatedById' => 'tns:ID',
-			    'CreatedDate' => 'xsd:dateTime',
-			    'CustomerPriority__c' => 'xsd:string',
-			    'Description' => 'xsd:string',
-			    'Fax' => 'xsd:string',
-			    'Industry' => 'xsd:string',
-			    'LastModifiedById' => 'tns:ID',
-			    'LastModifiedDate' => 'xsd:dateTime',
-			    'Name' => 'xsd:string',
-			    'NumberOfEmployees' => 'xsd:int',
-			    'NumberofLocations__c' => 'xsd:double',
-			    'OwnerId' => 'tns:ID',
-			    'Ownership' => 'xsd:string',
-			    'ParentId' => 'tns:ID',
-			    'Phone' => 'xsd:string',
-			    'Rating' => 'xsd:string',
-			    'SLAExpirationDate__c' => 'xsd:date',
-			    'SLASerialNumber_c' => 'xsd:string',
-			    'SLA__c' => 'xsd:string',
-			    'ShippingCity' => 'xsd:string',
-			    'ShippingCountry' => 'xsd:string',
-			    'ShippingPostalCode' => 'xsd:string',
-			    'ShippingState' => 'xsd:string',
-			    'ShippingStreet' => 'xsd:string',
-			    'Sic' => 'xsd:string',
-			    'Site' => 'xsd:string',
-			    'SystemModstamp' => 'xsd:sateTime',
-			    'TickerSymbol' => 'xsd:string',
-			    'Type' => 'xsd:string',
-			    'UpsellOpportunity__c' => 'xsd:string',
-			    'Website' => 'xsd:string',
+			       'SLA__c' => 'xsd:string',
+			       'UpsellOpportunity__c' => 'xsd:string',
+			       'Type' => 'xsd:string',
+			       'BillingStreet' => 'xsd:string',
+			       'ShippingCountry' => 'xsd:string',
+			       'LastModifiedDate' => 'xsd:dateTime',
+			       'Website' => 'xsd:string',
+			       'ShippingStreet' => 'xsd:string',
+			       'ParentId' => 'tns:ID',
+			       'Ownership' => 'xsd:string',
+			       'SLASerialNumber_c' => 'xsd:string',
+			       'OwnerId' => 'tns:ID',
+			       'Phone' => 'xsd:string',
+			       'LastModifiedById' => 'tns:ID',
+			       'NumberOfEmployees' => 'xsd:int',
+			       'TickerSymbol' => 'xsd:string',
+			       'AnnualRevenue' => 'xsd:double',
+			       'SystemModstamp' => 'xsd:sateTime',
+			       'Industry' => 'xsd:string',
+			       'Active__c' => 'xsd:string',
+			       'ShippingState' => 'xsd:string',
+			       'BillingCountry' => 'xsd:string',
+			       'Sic' => 'xsd:string',
+			       'SLAExpirationDate__c' => 'xsd:date',
+			       'ShippingCity' => 'xsd:string',
+			       'ShippingPostalCode' => 'xsd:string',
+			       'NumberofLocations__c' => 'xsd:double',
+			       'CustomerPriority__c' => 'xsd:string',
+			       'AccountNumber' => 'xsd:string',
+			       'BillingCity' => 'xsd:string',
+			       'Rating' => 'xsd:string',
+			       'CreatedDate' => 'xsd:dateTime',
+			       'BillingPostalCode' => 'xsd:string',
+			       'Site' => 'xsd:string',
+			       'BillingState' => 'xsd:string',
+			       'CreatedById' => 'tns:ID',
+			       'Description' => 'xsd:string',
+			       'Name' => 'xsd:string',
+			       'Fax' => 'xsd:string'
 			   },
-	     );
+	      'Campaign' => {
+			        'Status' => 'xsd:string',
+			        'NumberOfWonOpportunities' => 'xsd:int',
+			        'IsActive' => 'xsd:boolean',
+			        'NumberOfContacts' => 'xsd:int',
+			        'Type' => 'xsd:string',
+			        'LastModifiedDate' => 'xsd:dateTime',
+			        'NumberOfConvertedLeads' => 'xsd:int',
+			        'StartDate' => 'xsd:date',
+			        'CurrencyIsoCode' => 'xsd:string',
+			        'ExpectedResponse' => 'xsd:double',
+			        'BudgetedCost' => 'xsd:double',
+			        'EndDate' => 'xsd:date',
+			        'ActualCost' => 'xsd:double',
+			        'OwnerId' => 'xsd:string',#'tns:ID',
+			        'NumberOfResponses' => 'xsd:int',
+			        'LastModifiedById' => 'xsd:string',#'tns:ID',
+			        'CreatedDate' => 'xsd:dateTime',
+			        'NumberOfOpportunities' => 'xsd:int',
+			        'NumberSent' => 'xsd:double',
+			        'AmountWonOpportunities' => 'xsd:double',
+			        'ExpectedRevenue' => 'xsd:double',
+			        'NumberOfLeads' => 'xsd:int',
+			        'CreatedById' => 'xsd:string',#'tns:ID',
+			        'AmountAllOpportunities' => 'xsd:double',
+			        'Name' => 'xsd:string',
+			        'Description' => 'xsd:string',
+			        'SystemModstamp' => 'xsd:dateTime'
+			    },
+	      'CampaignMember' => {
+			               'Status' => 'xsd:string',
+			               'CampaignId' => 'xsd:string',#'tns:ID',
+			               'HasResponded' => 'xsd:boolean',
+			               'LastModifiedById' => 'xsd:string',#'tns:ID',
+			               'CreatedDate' => 'xsd:dateTime',
+			               'LastModifiedDate' => 'xsd:dateTime',
+			               'CreatedById' => 'xsd:string',#'tns:ID',
+			               'ContactId' => 'xsd:string',#'tns:ID',
+			               'LeadId' => 'xsd:string',#'tns:ID',
+			               'SystemModstamp' => 'xsd:dateTime'
+			          },
+	      'Lead' => {
+			    'FirstName' => 'xsd:string',
+			    'Street' => 'xsd:string',
+			    'Status' => 'xsd:string',
+			    'CampaignId' => 'xsd:string',#'tns:ID',
+			    'LeadSource' => 'xsd:string',
+			    'ConvertedContactId' => 'xsd:string',#'tns:ID',
+			    'MobilePhone' => 'xsd:string',
+			    'LastModifiedDate' => 'xsd:dateTime',
+			    'Website' => 'xsd:string',
+			    'Email' => 'xsd:string',
+			    'PostalCode' => 'xsd:string',
+			    'RecordTypeId' => 'xsd:string',
+			    'OwnerId' => 'xsd:string',#'tns:ID',
+			    'LastModifiedById' => 'xsd:string',#'tns:ID',
+			    'Phone' => 'xsd:string',
+			    'ConvertedOpportunityId' => 'xsd:string',#'tns:ID',
+			    'NumberOfEmployees' => 'xsd:int',
+			    'AnnualRevenue' => 'xsd:double',
+			    'Industry' => 'xsd:string',
+			    'SystemModstamp' => 'xsd:dateTime',
+			    'City' => 'xsd:string',
+			    'State' => 'xsd:string',
+			    'ConvertedAccountId' => 'xsd:string',#'tns:ID',
+			    'Title' => 'xsd:string',
+			    'LastName' => 'xsd:string',
+			    'CurrencyIsoCode' => 'xsd:string',
+			    'Company' => 'xsd:string',
+			    'Rating' => 'xsd:string',
+			    'Salutation' => 'xsd:string',
+			    'IsConverted' => 'xsd:boolean',
+			    'CreatedDate' => 'xsd:dateTime',
+			    'Country' => 'xsd:string',
+			    'CreatedById' => 'xsd:string',#'tns:ID',
+			    'IsUnreadByOwner' => 'xsd:boolean',
+			    'Description' => 'xsd:string',
+			    'HasOptedOutOfEmail' => 'xsd:boolean',
+			    'Fax' => 'xsd:string'
+			}
+        );
 }
 
 1; # Never forget the return value for the perl module :)

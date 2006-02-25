@@ -27,7 +27,7 @@ EOF
 close(CFGFILE);
 
 WriteMakefile(
-    VERSION => '0.55',
+    VERSION => '0.56',
     NAME    => 'Salesforce',
     PREREQ_PM    => { 'SOAP::Lite' => 0.55 },
 );

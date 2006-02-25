@@ -3,7 +3,7 @@
 # Author: Byrne Reese <byrne at majordojo dot com>
 # Last Updated - Nov 2, 2004
 #
-# $Id: README.txt,v 1.2 2004/11/03 08:03:15 byrnereese Exp $
+# $Id: README.txt,v 1.1.1.1 2006/02/14 16:48:49 shimizu Exp $
 
 The following Perl module is to facilitate communication with the
 Saleforce Web service APIs.

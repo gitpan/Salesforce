@@ -3,7 +3,14 @@
 # Author: Byrne Reese <byrne at majordojo dot com>
 # Last Updated - Nov 2, 2004
 #
-# $Id: CHANGES.txt,v 1.1 2004/11/03 08:02:57 byrnereese Exp $
+# $Id: CHANGES.txt,v 1.1.1.1 2006/02/14 16:48:49 shimizu Exp $
+
+Feb 07, 2006
+------------
+* Fixed bug for Salesforce::Constants
+  - added Campaign, CampaignMember, Lead at Salesforce::Constants::TYPES
+* Enhancement create and update
+  - using xml_encode for Japanese (EUC-JP)
 
 Nov 18, 2005
 ------------

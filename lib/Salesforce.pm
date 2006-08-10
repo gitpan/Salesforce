@@ -10,53 +10,56 @@ package Salesforce;
 
 use Service;
 
-$VERSION=0.56;
+$VERSION = 0.57;
 
 ##################################################################
 # BEGIN PortType Definitions
-# Notes: 
+# Notes:
 package Salesforce::Soap;
 
 use strict;
 use Encode;
 
 BEGIN {
-  use vars qw($PARAMS);
-  $PARAMS->{'login'} = { 'username' => 'SCALAR', 'password' => 'SCALAR', };
+    use vars qw($PARAMS);
+    $PARAMS->{'login'} = { 'username' => 'SCALAR', 'password' => 'SCALAR', };
 }
 
 sub new {
-    my($class)  = shift;
-    my(%params) = @_;
+    my ($class)  = shift;
+    my (%params) = @_;
     bless {
-	"style"     => 'document',
-	"transport" => 'http://schemas.xmlsoap.org/soap/http',
-	"address"   => $params{'address'}
+        "style"     => 'document',
+        "transport" => 'http://schemas.xmlsoap.org/soap/http',
+        "address"   => $params{'address'},
+        "encoding"  => $params{'encoding'}
     }, $class;
 }
 
 sub get_session_header {
     my $self = shift;
-    return SOAP::Header->name('SessionHeader' => \SOAP::Header->name('sessionId' => $self->{'sessionId'}));
+    return SOAP::Header->name( 'SessionHeader' =>
+          \SOAP::Header->name( 'sessionId' => $self->{'sessionId'} ) );
 }
 
 sub login {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $r = $client->login(SOAP::Data->name('username' => $in{'username'}),
-			 SOAP::Data->name('password' => $in{'password'}));
+    my $r = $client->login(
+        SOAP::Data->name( 'username' => $in{'username'} ),
+        SOAP::Data->name( 'password' => $in{'password'} )
+    );
     die $r->faultstring() if $r->fault();
 
     $self->{'sessionId'} = $r->valueof('//loginResponse/result/sessionId');
-    $self->{'serverUrl'} = $self->{'address'} = 
-	$r->valueof('//loginResponse/result/serverUrl');
+    $self->{'serverUrl'} = $self->{'address'} =
+      $r->valueof('//loginResponse/result/serverUrl');
     $self->{'userId'} = $r->valueof('//loginResponse/result/userId');
     return 1;
 }
@@ -65,15 +68,18 @@ sub query {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $r = $client->query($self->get_session_header(),
-			   SOAP::Data->name('query' => $in{'query'}),
-			   SOAP::Header->name('QueryOptions' => \SOAP::Header->name('batchSize' => $in{'limit'})));
+    my $r = $client->query(
+        $self->get_session_header(),
+        SOAP::Data->name( 'query' => $in{'query'} ),
+        SOAP::Header->name(
+            'QueryOptions' => \SOAP::Header->name( 'batchSize' => $in{'limit'} )
+        )
+    );
     return $r;
 
 }
@@ -82,72 +88,82 @@ sub queryMore {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $r = $client->queryMore($self->get_session_header(),
-			       SOAP::Data->name('queryLocator' => $in{'queryLocator'}),
-			       SOAP::Header->name('QueryOptions' => \SOAP::Header->name('batchSize' => $in{'limit'})));
+    my $r = $client->queryMore(
+        $self->get_session_header(),
+        SOAP::Data->name( 'queryLocator' => $in{'queryLocator'} ),
+        SOAP::Header->name(
+            'QueryOptions' => \SOAP::Header->name( 'batchSize' => $in{'limit'} )
+        )
+    );
     return $r;
 
 }
 
 sub xml_encode {
-    my ($self, $string) = @_;
-    my @array = split(//, Encode::decode('euc-jp', $string));
-    my $str;
-    foreach my $c (@array) {
-	$str .= sprintf("&#x%x;", ord($c));
+    my ( $self, $string ) = @_;
+    if ( defined $self->{'encoding'} and length( $self->{'encoding'} ) > 0 ) {
+        my @array = split( //, Encode::decode( $self->{'encoding'}, $string ) );
+        my $str;
+        foreach my $c (@array) {
+            $str .= sprintf( "&#x%x;", ord($c) );
+        }
+        return $str;
     }
-    return $str;
+    else {
+        return $string;
+    }
 }
 
 sub update {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("update")
-        ->prefix("sforce")
-        ->uri("urn:partner.soap.sforce.com")
-	->attr( { 'xmlns:sfons' => 'urn:sobject.partner.soap.sforce.com' } );
+    my $method =
+      SOAP::Data->name("update")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com")
+      ->attr( { 'xmlns:sfons' => 'urn:sobject.partner.soap.sforce.com' } );
 
     my $type = $in{'type'};
-    delete($in{'type'});
+    delete( $in{'type'} );
 
     my $id = $in{'id'};
-    delete($in{'id'});
+    delete( $in{'id'} );
 
     my @elems;
-    push @elems, SOAP::Data->prefix('sforce')->name('Id' => $id)->type('sforce:ID');
-    
-    foreach my $key (keys %in) {
-	my $val = $in{$key};
-	my $typ = $Salesforce::Constants::TYPES{$type}->{$key};
-	if ($typ eq 'xsd:string') {
-	    $val = $self->xml_encode($in{$key});
-	} elsif (!defined $typ || length($typ) == 0) {
-	    $typ = 'xsd:string';
-	    $val = $self->xml_encode($in{$key});
-	}
-	push @elems, SOAP::Data->prefix('sforce')->name($key => $val)->type($typ);
-	#push @elems, SOAP::Data->prefix('sforce')->name($key => $in{$key})->type($Salesforce::Constants::TYPES{$type}->{$key});
+    push @elems,
+      SOAP::Data->prefix('sforce')->name( 'Id' => $id )->type('sforce:ID');
+
+    foreach my $key ( keys %in ) {
+        my $val = $in{$key};
+        my $typ = $Salesforce::Constants::TYPES{$type}->{$key};
+        if ( $typ eq 'xsd:string' ) {
+            $val = $self->xml_encode( $in{$key} );
+        }
+        elsif ( !defined $typ || length($typ) == 0 ) {
+            $typ = 'xsd:string';
+            $val = $self->xml_encode( $in{$key} );
+        }
+        push @elems,
+          SOAP::Data->prefix('sforce')->name( $key => $val )->type($typ);
+
+#push @elems, SOAP::Data->prefix('sforce')->name($key => $in{$key})->type($Salesforce::Constants::TYPES{$type}->{$key});
     }
 
-    my $r = $client->call($method => 
-		SOAP::Data->name('sObjects' => \SOAP::Data->value(@elems))
-			  ->attr( { 'xsi:type' => 'sforce:'.$type } ),
-			  $self->get_session_header());
+    my $r = $client->call(
+        $method => SOAP::Data->name( 'sObjects' => \SOAP::Data->value(@elems) )
+          ->attr( { 'xsi:type' => 'sforce:' . $type } ),
+        $self->get_session_header()
+    );
 
     return $r;
 }
@@ -157,40 +173,41 @@ sub create {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("create")
-        ->prefix("sforce")
-	->uri("urn:partner.soap.sforce.com")
-	->attr( { 'xmlns:sfons' => 'urn:sobject.partner.soap.sforce.com' } );
+    my $method =
+      SOAP::Data->name("create")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com")
+      ->attr( { 'xmlns:sfons' => 'urn:sobject.partner.soap.sforce.com' } );
 
     my $type = $in{'type'};
-    delete($in{'type'});
-    
+    delete( $in{'type'} );
+
     my @elems;
-    foreach my $key (keys %in) {
-	my $val = $in{$key};
-	my $typ = $Salesforce::Constants::TYPES{$type}->{$key};
-	if ($typ eq 'xsd:string') {
-	    $val = $self->xml_encode($in{$key});
-	} elsif (!defined $typ || length($typ) == 0) {
-	    $typ = 'xsd:string';
-	    $val = $self->xml_encode($in{$key});
-	}
-	push @elems, SOAP::Data->prefix('sfons')->name($key => $val)->type($typ);
-	#push @elems, SOAP::Data->prefix('sfons')->name($key => $in{$key})->type($Salesforce::Constants::TYPES{$type}->{$key});
+    foreach my $key ( keys %in ) {
+        my $val = $in{$key};
+        my $typ = $Salesforce::Constants::TYPES{$type}->{$key};
+        if ( $typ eq 'xsd:string' ) {
+            $val = $self->xml_encode( $in{$key} );
+        }
+        elsif ( !defined $typ || length($typ) == 0 ) {
+            $typ = 'xsd:string';
+            $val = $self->xml_encode( $in{$key} );
+        }
+        push @elems,
+          SOAP::Data->prefix('sfons')->name( $key => $val )->type($typ);
+
+#push @elems, SOAP::Data->prefix('sfons')->name($key => $in{$key})->type($Salesforce::Constants::TYPES{$type}->{$key});
     }
 
-    my $r = $client->call($method => 
-		SOAP::Data->name('sObjects' => \SOAP::Data->value(@elems))
-			  ->attr( { 'xsi:type' => 'sfons:'.$type } ),
-			  $self->get_session_header());
+    my $r = $client->call(
+        $method => SOAP::Data->name( 'sObjects' => \SOAP::Data->value(@elems) )
+          ->attr( { 'xsi:type' => 'sfons:' . $type } ),
+        $self->get_session_header()
+    );
 
     return $r;
 }
@@ -199,25 +216,24 @@ sub create {
 sub delete {
     my $self = shift;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("delete")
-        ->prefix("sforce")
-        ->uri("urn:partner.soap.sforce.com");
+    my $method =
+      SOAP::Data->name("delete")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com");
 
     my @elems;
     foreach my $id (@_) {
-	push @elems, SOAP::Data->name('ids' => $id)->type('tns:ID');
+        push @elems, SOAP::Data->name( 'ids' => $id )->type('tns:ID');
     }
 
-    my $r = $client->call($method => @elems, 
-			  $self->get_session_header());
+    my $r = $client->call(
+        $method => @elems,
+        $self->get_session_header()
+    );
 
     return $r;
 }
@@ -227,20 +243,17 @@ sub getServerTimestamp {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("getServerTimestamp")
-        ->prefix("sforce")
-        ->uri("urn:partner.soap.sforce.com")
-	->attr( { 'xmlns:sfons' => 'urn:sobject.partner.soap.sforce.com' } );
+    my $method =
+      SOAP::Data->name("getServerTimestamp")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com")
+      ->attr( { 'xmlns:sfons' => 'urn:sobject.partner.soap.sforce.com' } );
 
-    my $r = $client->call($method => undef, $self->get_session_header());
+    my $r = $client->call( $method => undef, $self->get_session_header() );
 
     return $r;
 }
@@ -250,23 +263,21 @@ sub getUserInfo {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("getUserInfo")
-        ->prefix("sforce")
-        ->uri("urn:partner.soap.sforce.com");
+    my $method =
+      SOAP::Data->name("getUserInfo")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com");
 
-    my $r = $client->call($method => 
-			SOAP::Data->prefix('sforce')
-			          ->name('getUserInfo' => $in{'user'})
-                                  ->type('xsd:string'), 
-			  $self->get_session_header());
+    my $r = $client->call(
+        $method =>
+          SOAP::Data->prefix('sforce')->name( 'getUserInfo' => $in{'user'} )
+          ->type('xsd:string'),
+        $self->get_session_header()
+    );
 
     return $r;
 }
@@ -276,29 +287,26 @@ sub getUpdated {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("getUpdated")
-        ->prefix("sforce")
-        ->uri("urn:partner.soap.sforce.com");
+    my $method =
+      SOAP::Data->name("getUpdated")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com");
 
-    my $r = $client->call($method => 
-			SOAP::Data->prefix('sforce')
-			          ->name('sObjectType' => $in{'type'})
-                                  ->type('xsd:string'), 
-			SOAP::Data->prefix('sforce')
-			          ->name('startDate' => $in{'start'})
-                                  ->type('xsd:dateTime'), 
-			SOAP::Data->prefix('sforce')
-			          ->name('endDate' => $in{'end'})
-                                  ->type('xsd:dateTime'), 
-			  $self->get_session_header());
+    my $r = $client->call(
+        $method =>
+          SOAP::Data->prefix('sforce')->name( 'sObjectType' => $in{'type'} )
+          ->type('xsd:string'),
+        SOAP::Data->prefix('sforce')->name( 'startDate' => $in{'start'} )
+          ->type('xsd:dateTime'),
+        SOAP::Data->prefix('sforce')
+          ->name( 'endDate' => $in{'end'} )
+          ->type('xsd:dateTime'),
+        $self->get_session_header()
+    );
 
     return $r;
 }
@@ -308,29 +316,26 @@ sub getDeleted {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("getDeleted")
-        ->prefix("sforce")
-        ->uri("urn:partner.soap.sforce.com");
+    my $method =
+      SOAP::Data->name("getDeleted")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com");
 
-    my $r = $client->call($method => 
-			SOAP::Data->prefix('sforce')
-			          ->name('sObjectType' => $in{'type'})
-                                  ->type('xsd:string'), 
-			SOAP::Data->prefix('sforce')
-			          ->name('startDate' => $in{'start'})
-                                  ->type('xsd:dateTime'), 
-			SOAP::Data->prefix('sforce')
-			          ->name('endDate' => $in{'end'})
-                                  ->type('xsd:dateTime'), 
-			  $self->get_session_header());
+    my $r = $client->call(
+        $method =>
+          SOAP::Data->prefix('sforce')->name( 'sObjectType' => $in{'type'} )
+          ->type('xsd:string'),
+        SOAP::Data->prefix('sforce')->name( 'startDate' => $in{'start'} )
+          ->type('xsd:dateTime'),
+        SOAP::Data->prefix('sforce')
+          ->name( 'endDate' => $in{'end'} )
+          ->type('xsd:dateTime'),
+        $self->get_session_header()
+    );
 
     return $r;
 }
@@ -340,23 +345,21 @@ sub describeSObject {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("describeSObject")
-        ->prefix("sforce")
-        ->uri("urn:partner.soap.sforce.com");
+    my $method =
+      SOAP::Data->name("describeSObject")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com");
 
-    my $r = $client->call($method => 
-			SOAP::Data->prefix('sforce')
-			          ->name('sObjectType' => $in{'type'})
-                                  ->type('xsd:string'), 
-			  $self->get_session_header());
+    my $r = $client->call(
+        $method =>
+          SOAP::Data->prefix('sforce')->name( 'sObjectType' => $in{'type'} )
+          ->type('xsd:string'),
+        $self->get_session_header()
+    );
 
     return $r;
 }
@@ -366,20 +369,19 @@ sub describeGlobal {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("describeGlobal")
-        ->prefix("sforce")
-        ->uri("urn:partner.soap.sforce.com");
+    my $method =
+      SOAP::Data->name("describeGlobal")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com");
 
-    my $r = $client->call($method => undef,
-			  $self->get_session_header());
+    my $r = $client->call(
+        $method => undef,
+        $self->get_session_header()
+    );
 
     return $r;
 }
@@ -389,26 +391,23 @@ sub setPassword {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("setPassword")
-        ->prefix("sforce")
-        ->uri("urn:partner.soap.sforce.com");
+    my $method =
+      SOAP::Data->name("setPassword")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com");
 
-    my $r = $client->call($method => 
-			SOAP::Data->prefix('sforce')
-			          ->name('userId' => $in{'userId'})
-                                  ->type('xsd:string'), 
-			SOAP::Data->prefix('sforce')
-			          ->name('password' => $in{'password'})
-                                  ->type('xsd:string'), 
-			  $self->get_session_header());
+    my $r = $client->call(
+        $method =>
+          SOAP::Data->prefix('sforce')->name( 'userId' => $in{'userId'} )
+          ->type('xsd:string'),
+        SOAP::Data->prefix('sforce')->name( 'password' => $in{'password'} )
+          ->type('xsd:string'),
+        $self->get_session_header()
+    );
 
     return $r;
 }
@@ -418,23 +417,21 @@ sub resetPassword {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("resetPassword")
-        ->prefix("sforce")
-        ->uri("urn:partner.soap.sforce.com");
+    my $method =
+      SOAP::Data->name("resetPassword")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com");
 
-    my $r = $client->call($method => 
-			SOAP::Data->prefix('sforce')
-			          ->name('userId' => $in{'userId'})
-                                  ->type('xsd:string'), 
-			  $self->get_session_header());
+    my $r = $client->call(
+        $method =>
+          SOAP::Data->prefix('sforce')->name( 'userId' => $in{'userId'} )
+          ->type('xsd:string'),
+        $self->get_session_header()
+    );
 
     return $r;
 }
@@ -444,33 +441,31 @@ sub retrieve {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("retrieve")
-        ->prefix("sforce")
-        ->uri("urn:partner.soap.sforce.com");
+    my $method =
+      SOAP::Data->name("retrieve")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com");
 
     my @elems;
 
-    foreach my $id (@{$in{'ids'}}) {
-	push @elems, SOAP::Data->prefix('sforce')->name('ids' => $id)->type('xsd:string');
+    foreach my $id ( @{ $in{'ids'} } ) {
+        push @elems, SOAP::Data->prefix('sforce')->name( 'ids' => $id )
+          ->type('xsd:string');
     }
 
-    my $r = $client->call($method => 
-			SOAP::Data->prefix('sforce')
-			          ->name('fieldList' => $in{'fields'})
-                                  ->type('xsd:string'), 
-			SOAP::Data->prefix('sforce')
-			          ->name('sObjectType' => $in{'type'})
-                                  ->type('xsd:string'),
-			  @elems,
-			  $self->get_session_header());
+    my $r = $client->call(
+        $method =>
+          SOAP::Data->prefix('sforce')->name( 'fieldList' => $in{'fields'} )
+          ->type('xsd:string'),
+        SOAP::Data->prefix('sforce')->name( 'sObjectType' => $in{'type'} )
+          ->type('xsd:string'),
+        @elems,
+        $self->get_session_header()
+    );
 
     return $r;
 }
@@ -480,23 +475,20 @@ sub search {
     my $self = shift;
     my (%in) = @_;
 
-    my $client = SOAP::Lite
-	->readable(1)
-	->deserializer(Salesforce::Deserializer->new)
-	->on_action( sub { return '""' } )
-	->uri('urn:partner.soap.sforce.com')
-	->proxy($self->{address});
+    my $client =
+      SOAP::Lite->readable(1)->deserializer( Salesforce::Deserializer->new )
+      ->on_action( sub { return '""' } )->uri('urn:partner.soap.sforce.com')
+      ->proxy( $self->{address} );
 
-    my $method = SOAP::Data
-	->name("search")
-        ->prefix("sforce")
-        ->uri("urn:partner.soap.sforce.com");
+    my $method =
+      SOAP::Data->name("search")->prefix("sforce")
+      ->uri("urn:partner.soap.sforce.com");
 
-    my $r = $client->call($method => 
-			SOAP::Data->prefix('sforce')
-			          ->name('searchString' => $in{'searchString'})
-                                  ->type('xsd:string'), 
-			  $self->get_session_header());
+    my $r = $client->call(
+        $method => SOAP::Data->prefix('sforce')
+          ->name( 'searchString' => $in{'searchString'} )->type('xsd:string'),
+        $self->get_session_header()
+    );
 
     return $r;
 }
@@ -512,13 +504,18 @@ use vars qw(@ISA);
 @ISA = qw(Service);
 
 sub new {
-    my($class)  = shift;
-    my(%params) = @_;
-    my($self) = Service->new(@_);
-    $self->add_port( 'name'        => 'Soap',
-		     'bindingName' => 'tns:SoapBinding' ,
-		     'binding'     => Salesforce::Soap->new('address' => 'https://www.salesforce.com/services/Soap/u/4.0'));
-    return(bless($self, $class));
+    my ($class)  = shift;
+    my (%params) = @_;
+    my ($self)   = Service->new(@_);
+    $self->add_port(
+        'name'        => 'Soap',
+        'bindingName' => 'tns:SoapBinding',
+        'binding'     => Salesforce::Soap->new(
+            'address'  => 'https://www.salesforce.com/services/Soap/u/4.0',
+            'encoding' => $params{'encoding'}
+        )
+    );
+    return ( bless( $self, $class ) );
 }
 
 # END Service Definitions
@@ -526,19 +523,21 @@ sub new {
 
 ##################################################################
 # BEGIN Type Definitions
-# Notes: 
+# Notes:
 package Salesforce::LoginResult;
 use strict;
 
 sub BEGIN {
-  no strict 'refs';
-  for my $method (qw(serverUrl sessionId userId)) {
-    my $field = '_' . $method;
-    *$method = sub {
-      my $self = shift;
-      @_ ? ($self->{$field} = shift, return $self) : return $self->{$field};
+    no strict 'refs';
+    for my $method (qw(serverUrl sessionId userId)) {
+        my $field = '_' . $method;
+        *$method = sub {
+            my $self = shift;
+            @_
+              ? ( $self->{$field} = shift, return $self )
+              : return $self->{$field};
+          }
     }
-  }
 }
 
 # END Type Definitions
@@ -555,27 +554,27 @@ use vars qw(@ISA);
 use strict 'refs';
 
 sub new {
-    my $class  = shift;
-    my $self = $class->SUPER::new(@_);
+    my $class    = shift;
+    my $self     = $class->SUPER::new(@_);
     my (%params) = @_;
     return $self;
 }
 
 BEGIN {
-  use vars qw($XSD_NSPREFIX $XSI_NSPREFIX $SOAPENV_NSPREFIX 
-	      $SOAPENC_NSPREFIX $NSPREFIX);
+    use vars qw($XSD_NSPREFIX $XSI_NSPREFIX $SOAPENV_NSPREFIX
+      $SOAPENC_NSPREFIX $NSPREFIX);
 
-  $XSD_NSPREFIX="xsd";
-  $XSI_NSPREFIX="xsi";
-  $SOAPENV_NSPREFIX="SOAP-ENV";
-  $SOAPENC_NSPREFIX="SOAP-ENC";
-  $NSPREFIX="wsisup";
-  
-  no strict 'refs';
-  for my $class (qw(LoginResult)) {
-    my $method_name = "as_".$class;
-    my $class_name = "Salesforce::".$class;
-    my $method_body = <<END_OF_SUB;
+    $XSD_NSPREFIX     = "xsd";
+    $XSI_NSPREFIX     = "xsi";
+    $SOAPENV_NSPREFIX = "SOAP-ENV";
+    $SOAPENC_NSPREFIX = "SOAP-ENC";
+    $NSPREFIX         = "wsisup";
+
+    no strict 'refs';
+    for my $class (qw(LoginResult)) {
+        my $method_name = "as_" . $class;
+        my $class_name  = "Salesforce::" . $class;
+        my $method_body = <<END_OF_SUB;
 sub $method_name {
     my (\$self,\$f,\$name,\$attr) = splice(\@_,0,4);
     my \$ns = pop;
@@ -594,29 +593,33 @@ sub $method_name {
     return \$${class};
 }
 END_OF_SUB
-#    print STDERR $method_body;
-#    *$method_name = eval $method_body;
-    eval $method_body;
-  }
+
+        #    print STDERR $method_body;
+        #    *$method_name = eval $method_body;
+        eval $method_body;
+    }
 }
 
 sub as_Array {
     my $self = shift;
-    my $f = shift;
+    my $f    = shift;
     my @Array;
     foreach my $elem (@_) {
-	my ($name, $attr, $value, $ns) = splice(@$elem,0,4);
-	my $attrv = ${attr}->{$XSI_NSPREFIX.":type"};
-	my ($pre,$type) = ($attrv =~ /([^:]*):(.*)/);
+        my ( $name, $attr, $value, $ns ) = splice( @$elem, 0, 4 );
+        my $attrv = ${attr}->{ $XSI_NSPREFIX . ":type" };
+        my ( $pre, $type ) = ( $attrv =~ /([^:]*):(.*)/ );
         my $result;
-        if ($pre eq $XSD_NSPREFIX) {
-	    $result = $value;
-	} else {
-	    my $cmd = '$self->as_'.$type.'(1, $name, $attr, @$value, $ns );';
-#	    print STDERR $cmd . "\n";
-	    $result = eval $cmd;
-	}
-        push (@Array, $result);
+        if ( $pre eq $XSD_NSPREFIX ) {
+            $result = $value;
+        }
+        else {
+            my $cmd =
+              '$self->as_' . $type . '(1, $name, $attr, @$value, $ns );';
+
+            #	    print STDERR $cmd . "\n";
+            $result = eval $cmd;
+        }
+        push( @Array, $result );
     }
     return \@Array;
 }
@@ -629,131 +632,131 @@ package Salesforce::Constants;
 BEGIN {
     use vars qw(%TYPES);
     %TYPES = (
-	      'Account' => {
-			       'SLA__c' => 'xsd:string',
-			       'UpsellOpportunity__c' => 'xsd:string',
-			       'Type' => 'xsd:string',
-			       'BillingStreet' => 'xsd:string',
-			       'ShippingCountry' => 'xsd:string',
-			       'LastModifiedDate' => 'xsd:dateTime',
-			       'Website' => 'xsd:string',
-			       'ShippingStreet' => 'xsd:string',
-			       'ParentId' => 'tns:ID',
-			       'Ownership' => 'xsd:string',
-			       'SLASerialNumber_c' => 'xsd:string',
-			       'OwnerId' => 'tns:ID',
-			       'Phone' => 'xsd:string',
-			       'LastModifiedById' => 'tns:ID',
-			       'NumberOfEmployees' => 'xsd:int',
-			       'TickerSymbol' => 'xsd:string',
-			       'AnnualRevenue' => 'xsd:double',
-			       'SystemModstamp' => 'xsd:sateTime',
-			       'Industry' => 'xsd:string',
-			       'Active__c' => 'xsd:string',
-			       'ShippingState' => 'xsd:string',
-			       'BillingCountry' => 'xsd:string',
-			       'Sic' => 'xsd:string',
-			       'SLAExpirationDate__c' => 'xsd:date',
-			       'ShippingCity' => 'xsd:string',
-			       'ShippingPostalCode' => 'xsd:string',
-			       'NumberofLocations__c' => 'xsd:double',
-			       'CustomerPriority__c' => 'xsd:string',
-			       'AccountNumber' => 'xsd:string',
-			       'BillingCity' => 'xsd:string',
-			       'Rating' => 'xsd:string',
-			       'CreatedDate' => 'xsd:dateTime',
-			       'BillingPostalCode' => 'xsd:string',
-			       'Site' => 'xsd:string',
-			       'BillingState' => 'xsd:string',
-			       'CreatedById' => 'tns:ID',
-			       'Description' => 'xsd:string',
-			       'Name' => 'xsd:string',
-			       'Fax' => 'xsd:string'
-			   },
-	      'Campaign' => {
-			        'Status' => 'xsd:string',
-			        'NumberOfWonOpportunities' => 'xsd:int',
-			        'IsActive' => 'xsd:boolean',
-			        'NumberOfContacts' => 'xsd:int',
-			        'Type' => 'xsd:string',
-			        'LastModifiedDate' => 'xsd:dateTime',
-			        'NumberOfConvertedLeads' => 'xsd:int',
-			        'StartDate' => 'xsd:date',
-			        'CurrencyIsoCode' => 'xsd:string',
-			        'ExpectedResponse' => 'xsd:double',
-			        'BudgetedCost' => 'xsd:double',
-			        'EndDate' => 'xsd:date',
-			        'ActualCost' => 'xsd:double',
-			        'OwnerId' => 'xsd:string',#'tns:ID',
-			        'NumberOfResponses' => 'xsd:int',
-			        'LastModifiedById' => 'xsd:string',#'tns:ID',
-			        'CreatedDate' => 'xsd:dateTime',
-			        'NumberOfOpportunities' => 'xsd:int',
-			        'NumberSent' => 'xsd:double',
-			        'AmountWonOpportunities' => 'xsd:double',
-			        'ExpectedRevenue' => 'xsd:double',
-			        'NumberOfLeads' => 'xsd:int',
-			        'CreatedById' => 'xsd:string',#'tns:ID',
-			        'AmountAllOpportunities' => 'xsd:double',
-			        'Name' => 'xsd:string',
-			        'Description' => 'xsd:string',
-			        'SystemModstamp' => 'xsd:dateTime'
-			    },
-	      'CampaignMember' => {
-			               'Status' => 'xsd:string',
-			               'CampaignId' => 'xsd:string',#'tns:ID',
-			               'HasResponded' => 'xsd:boolean',
-			               'LastModifiedById' => 'xsd:string',#'tns:ID',
-			               'CreatedDate' => 'xsd:dateTime',
-			               'LastModifiedDate' => 'xsd:dateTime',
-			               'CreatedById' => 'xsd:string',#'tns:ID',
-			               'ContactId' => 'xsd:string',#'tns:ID',
-			               'LeadId' => 'xsd:string',#'tns:ID',
-			               'SystemModstamp' => 'xsd:dateTime'
-			          },
-	      'Lead' => {
-			    'FirstName' => 'xsd:string',
-			    'Street' => 'xsd:string',
-			    'Status' => 'xsd:string',
-			    'CampaignId' => 'xsd:string',#'tns:ID',
-			    'LeadSource' => 'xsd:string',
-			    'ConvertedContactId' => 'xsd:string',#'tns:ID',
-			    'MobilePhone' => 'xsd:string',
-			    'LastModifiedDate' => 'xsd:dateTime',
-			    'Website' => 'xsd:string',
-			    'Email' => 'xsd:string',
-			    'PostalCode' => 'xsd:string',
-			    'RecordTypeId' => 'xsd:string',
-			    'OwnerId' => 'xsd:string',#'tns:ID',
-			    'LastModifiedById' => 'xsd:string',#'tns:ID',
-			    'Phone' => 'xsd:string',
-			    'ConvertedOpportunityId' => 'xsd:string',#'tns:ID',
-			    'NumberOfEmployees' => 'xsd:int',
-			    'AnnualRevenue' => 'xsd:double',
-			    'Industry' => 'xsd:string',
-			    'SystemModstamp' => 'xsd:dateTime',
-			    'City' => 'xsd:string',
-			    'State' => 'xsd:string',
-			    'ConvertedAccountId' => 'xsd:string',#'tns:ID',
-			    'Title' => 'xsd:string',
-			    'LastName' => 'xsd:string',
-			    'CurrencyIsoCode' => 'xsd:string',
-			    'Company' => 'xsd:string',
-			    'Rating' => 'xsd:string',
-			    'Salutation' => 'xsd:string',
-			    'IsConverted' => 'xsd:boolean',
-			    'CreatedDate' => 'xsd:dateTime',
-			    'Country' => 'xsd:string',
-			    'CreatedById' => 'xsd:string',#'tns:ID',
-			    'IsUnreadByOwner' => 'xsd:boolean',
-			    'Description' => 'xsd:string',
-			    'HasOptedOutOfEmail' => 'xsd:boolean',
-			    'Fax' => 'xsd:string'
-			}
-        );
+        'Account' => {
+            'SLA__c'               => 'xsd:string',
+            'UpsellOpportunity__c' => 'xsd:string',
+            'Type'                 => 'xsd:string',
+            'BillingStreet'        => 'xsd:string',
+            'ShippingCountry'      => 'xsd:string',
+            'LastModifiedDate'     => 'xsd:dateTime',
+            'Website'              => 'xsd:string',
+            'ShippingStreet'       => 'xsd:string',
+            'ParentId'             => 'tns:ID',
+            'Ownership'            => 'xsd:string',
+            'SLASerialNumber_c'    => 'xsd:string',
+            'OwnerId'              => 'tns:ID',
+            'Phone'                => 'xsd:string',
+            'LastModifiedById'     => 'tns:ID',
+            'NumberOfEmployees'    => 'xsd:int',
+            'TickerSymbol'         => 'xsd:string',
+            'AnnualRevenue'        => 'xsd:double',
+            'SystemModstamp'       => 'xsd:sateTime',
+            'Industry'             => 'xsd:string',
+            'Active__c'            => 'xsd:string',
+            'ShippingState'        => 'xsd:string',
+            'BillingCountry'       => 'xsd:string',
+            'Sic'                  => 'xsd:string',
+            'SLAExpirationDate__c' => 'xsd:date',
+            'ShippingCity'         => 'xsd:string',
+            'ShippingPostalCode'   => 'xsd:string',
+            'NumberofLocations__c' => 'xsd:double',
+            'CustomerPriority__c'  => 'xsd:string',
+            'AccountNumber'        => 'xsd:string',
+            'BillingCity'          => 'xsd:string',
+            'Rating'               => 'xsd:string',
+            'CreatedDate'          => 'xsd:dateTime',
+            'BillingPostalCode'    => 'xsd:string',
+            'Site'                 => 'xsd:string',
+            'BillingState'         => 'xsd:string',
+            'CreatedById'          => 'tns:ID',
+            'Description'          => 'xsd:string',
+            'Name'                 => 'xsd:string',
+            'Fax'                  => 'xsd:string'
+        },
+        'Campaign' => {
+            'Status'                   => 'xsd:string',
+            'NumberOfWonOpportunities' => 'xsd:int',
+            'IsActive'                 => 'xsd:boolean',
+            'NumberOfContacts'         => 'xsd:int',
+            'Type'                     => 'xsd:string',
+            'LastModifiedDate'         => 'xsd:dateTime',
+            'NumberOfConvertedLeads'   => 'xsd:int',
+            'StartDate'                => 'xsd:date',
+            'CurrencyIsoCode'          => 'xsd:string',
+            'ExpectedResponse'         => 'xsd:double',
+            'BudgetedCost'             => 'xsd:double',
+            'EndDate'                  => 'xsd:date',
+            'ActualCost'               => 'xsd:double',
+            'OwnerId'                  => 'xsd:string',     #'tns:ID',
+            'NumberOfResponses'        => 'xsd:int',
+            'LastModifiedById'         => 'xsd:string',     #'tns:ID',
+            'CreatedDate'              => 'xsd:dateTime',
+            'NumberOfOpportunities'    => 'xsd:int',
+            'NumberSent'               => 'xsd:double',
+            'AmountWonOpportunities'   => 'xsd:double',
+            'ExpectedRevenue'          => 'xsd:double',
+            'NumberOfLeads'            => 'xsd:int',
+            'CreatedById'              => 'xsd:string',     #'tns:ID',
+            'AmountAllOpportunities'   => 'xsd:double',
+            'Name'                     => 'xsd:string',
+            'Description'              => 'xsd:string',
+            'SystemModstamp'           => 'xsd:dateTime'
+        },
+        'CampaignMember' => {
+            'Status'           => 'xsd:string',
+            'CampaignId'       => 'xsd:string',             #'tns:ID',
+            'HasResponded'     => 'xsd:boolean',
+            'LastModifiedById' => 'xsd:string',             #'tns:ID',
+            'CreatedDate'      => 'xsd:dateTime',
+            'LastModifiedDate' => 'xsd:dateTime',
+            'CreatedById'      => 'xsd:string',             #'tns:ID',
+            'ContactId'        => 'xsd:string',             #'tns:ID',
+            'LeadId'           => 'xsd:string',             #'tns:ID',
+            'SystemModstamp'   => 'xsd:dateTime'
+        },
+        'Lead' => {
+            'FirstName'              => 'xsd:string',
+            'Street'                 => 'xsd:string',
+            'Status'                 => 'xsd:string',
+            'CampaignId'             => 'xsd:string',       #'tns:ID',
+            'LeadSource'             => 'xsd:string',
+            'ConvertedContactId'     => 'xsd:string',       #'tns:ID',
+            'MobilePhone'            => 'xsd:string',
+            'LastModifiedDate'       => 'xsd:dateTime',
+            'Website'                => 'xsd:string',
+            'Email'                  => 'xsd:string',
+            'PostalCode'             => 'xsd:string',
+            'RecordTypeId'           => 'xsd:string',
+            'OwnerId'                => 'xsd:string',       #'tns:ID',
+            'LastModifiedById'       => 'xsd:string',       #'tns:ID',
+            'Phone'                  => 'xsd:string',
+            'ConvertedOpportunityId' => 'xsd:string',       #'tns:ID',
+            'NumberOfEmployees'      => 'xsd:int',
+            'AnnualRevenue'          => 'xsd:double',
+            'Industry'               => 'xsd:string',
+            'SystemModstamp'         => 'xsd:dateTime',
+            'City'                   => 'xsd:string',
+            'State'                  => 'xsd:string',
+            'ConvertedAccountId'     => 'xsd:string',       #'tns:ID',
+            'Title'                  => 'xsd:string',
+            'LastName'               => 'xsd:string',
+            'CurrencyIsoCode'        => 'xsd:string',
+            'Company'                => 'xsd:string',
+            'Rating'                 => 'xsd:string',
+            'Salutation'             => 'xsd:string',
+            'IsConverted'            => 'xsd:boolean',
+            'CreatedDate'            => 'xsd:dateTime',
+            'Country'                => 'xsd:string',
+            'CreatedById'            => 'xsd:string',       #'tns:ID',
+            'IsUnreadByOwner'        => 'xsd:boolean',
+            'Description'            => 'xsd:string',
+            'HasOptedOutOfEmail'     => 'xsd:boolean',
+            'Fax'                    => 'xsd:string'
+        }
+    );
 }
 
-1; # Never forget the return value for the perl module :)
+1;    # Never forget the return value for the perl module :)
 __END__
 
 =pod

@@ -6,11 +6,9 @@ package Service;
 use strict;
 
 sub new {
-    my($class)  = shift;
-    my(%params) = @_;
-    bless {
-	"_ports" => undef
-    }, $class;
+    my ($class)  = shift;
+    my (%params) = @_;
+    bless { "_ports" => undef }, $class;
 }
 
 sub get_port {
@@ -28,7 +26,7 @@ sub get_port_binding {
 sub add_port {
     my $self = shift;
     my $port = Service::Port->new(@_);
-    $self->{'_ports'}->{$port->name()} = $port;
+    $self->{'_ports'}->{ $port->name() } = $port;
 }
 
 ##################################################################
@@ -36,14 +34,16 @@ package Service::Port;
 use strict;
 
 sub BEGIN {
-  no strict 'refs';
-  for my $method (qw(name bindingName binding)) {
-    my $field = '_' . $method;
-    *$method = sub {
-      my $self = shift;
-      @_ ? ($self->{$field} = shift, return $self) : return $self->{$field};
+    no strict 'refs';
+    for my $method (qw(name bindingName binding)) {
+        my $field = '_' . $method;
+        *$method = sub {
+            my $self = shift;
+            @_
+              ? ( $self->{$field} = shift, return $self )
+              : return $self->{$field};
+          }
     }
-  }
 }
 
 sub address {
@@ -52,13 +52,13 @@ sub address {
 }
 
 sub new {
-    my($class)  = shift;
-    my(%params) = @_;
-    
+    my ($class)  = shift;
+    my (%params) = @_;
+
     bless {
-	"_name"        => $params{"name"},
-	"_binding"     => $params{"binding"},
-	"_bindingName" => $params{"bindingName"}
+        "_name"        => $params{"name"},
+        "_binding"     => $params{"binding"},
+        "_bindingName" => $params{"bindingName"}
     }, $class;
 }
 
